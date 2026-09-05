@@ -7,39 +7,46 @@ import Badge from '../../components/traveler/Badge'
 import { listItineraries } from '../../lib/itineraries'
 import { addDaysIso, formatShortDate } from '../../lib/dates'
 
-// Builds one entry per calendar day of the trip, each carrying whichever
-// destination covers that date and the activities that belong to it — the
-// backend only stores destinations (date ranges) and activities (tied to a
-// destination, with an optional specific date), not a precomputed day list.
+// Builds one entry per day actually covered by a destination's own
+// arrival_date/departure_date span, in destination order — deliberately
+// NOT a walk of itinerary.start_date..end_date, since a destination added
+// via chat can land outside that range (e.g. a fresh itinerary created
+// with a rough placeholder window before any real dates were known) and
+// would then silently never appear on any day card.
 function buildDays(itinerary) {
   const destinations = (itinerary.destinations || []).slice().sort((a, b) => a.order - b.order)
   if (destinations.length === 0) return []
 
-  const start = new Date(`${itinerary.start_date}T00:00:00`)
-  const end = new Date(`${itinerary.end_date}T00:00:00`)
-  const totalDays = Math.max(Math.round((end - start) / 86400000) + 1, 1)
-
-  // On a transition day (one stop's departure_date equals the next one's
-  // arrival_date), credit it to the destination being arrived into.
-  const destinationForDate = (iso) => {
-    for (let i = destinations.length - 1; i >= 0; i--) {
-      if (iso >= destinations[i].arrival_date && iso <= destinations[i].departure_date) return destinations[i]
-    }
-    return null
-  }
-
   const days = []
   const firstDayIsoByDestOrder = new Map()
-  for (let i = 0; i < totalDays; i++) {
-    const iso = addDaysIso(itinerary.start_date, i)
-    const destination = destinationForDate(iso)
-    if (destination && !firstDayIsoByDestOrder.has(destination.order)) {
-      firstDayIsoByDestOrder.set(destination.order, iso)
+
+  destinations.forEach((destination, i) => {
+    const next = destinations[i + 1]
+    // A shared boundary day (this stop's departure_date == the next one's
+    // arrival_date) is credited to the destination being arrived into, so
+    // stop one day short here rather than emitting it twice.
+    const rangeEndIso =
+      next && next.arrival_date === destination.departure_date
+        ? addDaysIso(destination.departure_date, -1)
+        : destination.departure_date
+
+    const arrival = new Date(`${destination.arrival_date}T00:00:00`)
+    const rangeEnd = new Date(`${rangeEndIso}T00:00:00`)
+    const spanDays = Math.round((rangeEnd - arrival) / 86400000) + 1
+    if (spanDays <= 0) return
+
+    for (let d = 0; d < spanDays; d++) {
+      const iso = addDaysIso(destination.arrival_date, d)
+      if (!firstDayIsoByDestOrder.has(destination.order)) {
+        firstDayIsoByDestOrder.set(destination.order, iso)
+      }
+      days.push({
+        iso,
+        destination,
+        prevDestination: days.length > 0 ? days[days.length - 1].destination : null,
+        items: [],
+      })
     }
-    days.push({ iso, destination, prevDestination: null, items: [] })
-  }
-  days.forEach((day, i) => {
-    day.prevDestination = i > 0 ? days[i - 1].destination : null
   })
 
   // An activity with no activity_date is shown on the first day of its

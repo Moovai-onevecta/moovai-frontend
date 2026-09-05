@@ -271,7 +271,13 @@ function Chat() {
     try {
       if (action.kind === 'add_stop') {
         const lastDestination = itinerary.destinations[itinerary.destinations.length - 1]
-        const arrival = lastDestination ? addDaysIso(lastDestination.departure_date, 1) : itinerary.start_date
+        const fallbackArrival = lastDestination ? addDaysIso(lastDestination.departure_date, 1) : itinerary.start_date
+        // The assistant infers real stay dates from the trip's context
+        // (see chat_assistant_system_prompt) — prefer those over a naive
+        // "day after the last stop" guess, and only fall back when it
+        // genuinely couldn't infer one.
+        const arrival = action.arrival_date || fallbackArrival
+        const departure = action.departure_date || addDaysIso(arrival, 1)
         // The backend assigns the destination's order itself (it's the
         // source of truth for the itinerary's current state) — the client
         // sending a computed guess here could race a stale `itinerary` and
@@ -279,8 +285,9 @@ function Chat() {
         const updated = await addDestination(itineraryId, {
           order: null,
           city: action.city || action.title,
+          country: action.country || null,
           arrival_date: arrival,
-          departure_date: addDaysIso(arrival, 1),
+          departure_date: departure,
         })
         setItinerary(updated)
       } else if (action.kind === 'add_activity') {

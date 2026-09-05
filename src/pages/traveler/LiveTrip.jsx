@@ -1,17 +1,13 @@
+import { useEffect, useState } from 'react'
 import TravelerShell from '../../components/traveler/TravelerShell'
 import Pill from '../../components/traveler/Pill'
 import Card from '../../components/traveler/Card'
+import { listItineraries } from '../../lib/itineraries'
+import { formatShortDate, todayIso } from '../../lib/dates'
 
 const STATS = [
   { label: 'Next check-in', value: '18:00 today' },
   { label: 'Spent so far', value: '$412 of $780' },
-]
-
-const TODAY = [
-  { time: '08:30', title: 'Breakfast at the inn', by: 'Included with your stay', status: 'Done', dot: 'var(--tv-green)', chipBg: 'var(--tv-green-tint)' },
-  { time: '10:00', title: 'Manhyia Palace Museum', by: 'Adwoa Boateng · 2 hrs', status: 'Done', dot: 'var(--tv-green)', chipBg: 'var(--tv-green-tint)' },
-  { time: '15:00', title: 'Bonwire kente workshop', by: 'Adwoa Boateng · pickup at the inn', status: 'Next', dot: 'var(--tv-accent)', chipBg: 'var(--tv-accent-tint)' },
-  { time: '19:30', title: 'Dinner, Chopsticks Kumasi', by: 'Table for one, booked', status: 'Later', dot: 'var(--tv-muted)', chipBg: 'rgba(26,23,18,0.07)' },
 ]
 
 const DOCS = [
@@ -28,7 +24,63 @@ const CHECKINS = [
 
 const REPORT_ACTIONS = ["Guide hasn't arrived", 'Problem with my stay', 'I want to change tomorrow']
 
+// Day count and the current stop are derived from the itinerary's real
+// dates — there's no separate "trip progress" concept on the backend yet.
+function dayOfTrip(itinerary, todayStr) {
+  const start = new Date(`${itinerary.start_date}T00:00:00`)
+  const end = new Date(`${itinerary.end_date}T00:00:00`)
+  const today = new Date(`${todayStr}T00:00:00`)
+  const totalDays = Math.round((end - start) / 86400000) + 1
+  const rawDay = Math.round((today - start) / 86400000) + 1
+  return { day: Math.min(Math.max(rawDay, 1), totalDays), totalDays }
+}
+
+function currentDestination(itinerary, todayStr) {
+  const destinations = itinerary.destinations || []
+  return (
+    destinations.find((d) => todayStr >= d.arrival_date && todayStr <= d.departure_date) ||
+    destinations[0] ||
+    null
+  )
+}
+
 function LiveTrip() {
+  const [itinerary, setItinerary] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    listItineraries()
+      .then((data) => {
+        if (!cancelled) setItinerary(data[0] || null)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message || 'Could not load your trip.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const today = todayIso()
+  const destination = itinerary ? currentDestination(itinerary, today) : null
+  const { day, totalDays } = itinerary ? dayOfTrip(itinerary, today) : { day: 0, totalDays: 0 }
+  const todayActivities = (itinerary?.activities || [])
+    .filter((a) => destination && a.destination_order === destination.order)
+    .sort((a, b) => a.order - b.order)
+
+  const heading = itinerary
+    ? `Day ${day} of ${totalDays}${destination ? ` — ${destination.city}` : ''}`
+    : loading
+      ? 'Loading your trip…'
+      : 'No trip in progress'
+
   return (
     <TravelerShell active="Live trip">
       <div className="tv-row" style={{ padding: '30px 34px', background: 'var(--tv-dark)', gap: 26 }}>
@@ -37,7 +89,10 @@ function LiveTrip() {
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--tv-accent)', boxShadow: '0 0 0 5px rgba(255,37,0,0.18)' }} />
             Trip in progress
           </p>
-          <p style={{ margin: 0, font: "700 34px/1 'Inter Tight','Inter',sans-serif", letterSpacing: '-0.035em', color: '#fff' }}>Day 3 of 6 — Kumasi</p>
+          <p style={{ margin: 0, font: "700 34px/1 'Inter Tight','Inter',sans-serif", letterSpacing: '-0.035em', color: '#fff' }}>{heading}</p>
+          {error && (
+            <p style={{ margin: '8px 0 0', font: "500 13px/1.4 'Inter',sans-serif", color: 'var(--tv-accent)' }}>{error}</p>
+          )}
         </div>
         <div className="tv-row" style={{ marginLeft: 'auto', gap: 12 }}>
           {STATS.map((s) => (
@@ -66,17 +121,24 @@ function LiveTrip() {
           </Card>
 
           <Card style={{ padding: '24px 26px' }}>
-            <p style={{ margin: '0 0 18px', font: "700 12px/1 'Inter',sans-serif", letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--tv-muted)' }}>Today, Sat 14 Nov</p>
+            <p style={{ margin: '0 0 18px', font: "700 12px/1 'Inter',sans-serif", letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--tv-muted)' }}>
+              Today{destination ? `, ${formatShortDate(today)} — ${destination.city}` : ''}
+            </p>
             <div className="tv-col">
-              {TODAY.map((t) => (
-                <div key={t.time} className="tv-row" style={{ gap: 16, padding: '14px 0', borderBottom: '1px solid rgba(26,23,18,0.06)' }}>
-                  <span style={{ width: 60, flex: 'none', font: "600 13px/1 'Inter',sans-serif", color: 'var(--tv-muted)' }}>{t.time}</span>
-                  <span style={{ width: 8, height: 8, flex: 'none', borderRadius: '50%', background: t.dot }} />
+              {todayActivities.length === 0 && (
+                <p style={{ margin: 0, font: "400 14px/1.5 'Inter',sans-serif", color: 'var(--tv-muted)' }}>
+                  Nothing planned for this stop yet.
+                </p>
+              )}
+              {todayActivities.map((a) => (
+                <div key={a.order} className="tv-row" style={{ gap: 16, padding: '14px 0', borderBottom: '1px solid rgba(26,23,18,0.06)' }}>
                   <div style={{ flex: '1 1 0' }}>
-                    <p style={{ margin: '0 0 4px', font: "600 15px/1.35 'Inter',sans-serif", color: 'var(--tv-ink)' }}>{t.title}</p>
-                    <p style={{ margin: 0, font: "400 13px/1.4 'Inter',sans-serif", color: 'var(--tv-muted)' }}>{t.by}</p>
+                    <p style={{ margin: '0 0 4px', font: "600 15px/1.35 'Inter',sans-serif", color: 'var(--tv-ink)' }}>{a.title}</p>
+                    {a.est && <p style={{ margin: 0, font: "400 13px/1.4 'Inter',sans-serif", color: 'var(--tv-muted)' }}>{a.est}</p>}
                   </div>
-                  <span style={{ font: "600 12px/1 'Inter',sans-serif", color: t.dot, background: t.chipBg, padding: '6px 11px', borderRadius: 999 }}>{t.status}</span>
+                  {a.price != null && (
+                    <span style={{ font: "600 13px/1 'Inter',sans-serif", color: 'var(--tv-ink)' }}>${a.price}</span>
+                  )}
                 </div>
               ))}
             </div>

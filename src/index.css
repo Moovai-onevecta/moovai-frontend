@@ -88,3 +88,12 @@ p {
   flex-direction: column;
   overflow-x: clip;
 }
+
+.tv-hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tv-hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}

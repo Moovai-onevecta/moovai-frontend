@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useAuth } from '../../contexts/AuthContext'
 import TravelerShell from '../../components/traveler/TravelerShell'
@@ -5,6 +6,8 @@ import Pill from '../../components/traveler/Pill'
 import Card from '../../components/traveler/Card'
 import Badge from '../../components/traveler/Badge'
 import DotNote from '../../components/traveler/DotNote'
+import { listItineraries } from '../../lib/itineraries'
+import { formatShortDate } from '../../lib/dates'
 
 const READINESS = [
   { label: 'Guides, 3 of 3', note: 'Kofi, Adwoa and Esi confirmed', dot: '#7fd39a' },
@@ -13,11 +16,20 @@ const READINESS = [
   { label: 'Transfers and car', note: 'Booked, drivers assigned later', dot: '#7fd39a' },
 ]
 
-const DRAFTS = [
-  { name: 'Senegal, coast to Dakar', meta: '4 messages · 2 days ago', stage: 'Draft', note: 'You asked for music venues. Three Dakar guides are waiting on your dates.' },
-  { name: 'Cape Town, work trip', meta: '11 messages · last week', stage: 'Needs dates', note: 'Itinerary is built for 4 days but no travel window is set.' },
-  { name: 'Kigali and Volcanoes NP', meta: '2 messages · 3 weeks ago', stage: 'Idea', note: 'Permit availability blocks anything before March. Moovai will check again.' },
-]
+// Draft trip stage is derived from what the itinerary actually has on it —
+// there's no separate "stage" field on the backend model.
+function draftStage(itinerary) {
+  if (itinerary.destinations.length === 0) return 'Idea'
+  if (!itinerary.start_date || !itinerary.end_date) return 'Needs dates'
+  return 'Draft'
+}
+
+function draftNote(itinerary) {
+  const stopCount = itinerary.destinations.length
+  if (stopCount === 0) return 'No stops yet — continue the chat to start planning.'
+  const activityCount = itinerary.activities.length
+  return `${stopCount} stop${stopCount === 1 ? '' : 's'}, ${activityCount} activit${activityCount === 1 ? 'y' : 'ies'} planned so far.`
+}
 
 const OPERATORS = [
   { initials: 'EA', name: 'Esi Amoah', rating: '4.9', meta: 'Cape Coast · history and coast', price: 'From $24 / day' },
@@ -43,6 +55,29 @@ function HomeDashboard() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const firstName = user?.displayName?.split(' ')[0] || 'there'
+
+  const [drafts, setDrafts] = useState([])
+  const [draftsLoading, setDraftsLoading] = useState(true)
+  const [draftsError, setDraftsError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    listItineraries()
+      .then((data) => {
+        if (!cancelled) setDrafts(data)
+      })
+      .catch((err) => {
+        if (!cancelled) setDraftsError(err.message || 'Could not load your trips.')
+      })
+      .finally(() => {
+        if (!cancelled) setDraftsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <TravelerShell active="Home">
@@ -91,21 +126,38 @@ function HomeDashboard() {
               <p style={{ margin: 0, font: "700 18px/1 'Inter Tight','Inter',sans-serif", letterSpacing: '-0.02em', color: 'var(--tv-ink)' }}>Pick up where you left off</p>
               <a href="#" onClick={(e) => { e.preventDefault(); navigate('/app/chat') }} style={{ marginLeft: 'auto', font: "600 14px/1 'Inter',sans-serif" }}>All drafts</a>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-              {DRAFTS.map((d) => (
-                <Card key={d.name} className="tv-col" style={{ padding: 20, gap: 12 }}>
-                  <div className="tv-row" style={{ gap: 10, alignItems: 'flex-start' }}>
-                    <div style={{ flex: '1 1 0' }}>
-                      <p style={{ margin: '0 0 4px', font: "700 18px/1.15 'Inter Tight','Inter',sans-serif", letterSpacing: '-0.02em', color: 'var(--tv-ink)' }}>{d.name}</p>
-                      <p style={{ margin: 0, font: "500 13px/1 'Inter',sans-serif", color: 'var(--tv-muted)' }}>{d.meta}</p>
+            {draftsLoading && (
+              <p style={{ margin: 0, font: "400 14px/1 'Inter',sans-serif", color: 'var(--tv-muted)' }}>Loading your trips…</p>
+            )}
+            {!draftsLoading && draftsError && (
+              <p style={{ margin: 0, font: "400 14px/1 'Inter',sans-serif", color: 'var(--tv-accent)' }}>{draftsError}</p>
+            )}
+            {!draftsLoading && !draftsError && drafts.length === 0 && (
+              <Card variant="dashed" style={{ padding: 22 }}>
+                <p style={{ margin: 0, font: "400 15px/1.5 'Inter',sans-serif", color: 'var(--tv-muted)' }}>
+                  No draft trips yet — tell Moovai where you want to go to start one.
+                </p>
+              </Card>
+            )}
+            {!draftsLoading && !draftsError && drafts.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+                {drafts.map((d) => (
+                  <Card key={d.id} className="tv-col" style={{ padding: 20, gap: 12 }}>
+                    <div className="tv-row" style={{ gap: 10, alignItems: 'flex-start' }}>
+                      <div style={{ flex: '1 1 0' }}>
+                        <p style={{ margin: '0 0 4px', font: "700 18px/1.15 'Inter Tight','Inter',sans-serif", letterSpacing: '-0.02em', color: 'var(--tv-ink)' }}>{d.name}</p>
+                        <p style={{ margin: 0, font: "500 13px/1 'Inter',sans-serif", color: 'var(--tv-muted)' }}>
+                          {formatShortDate(d.start_date)} – {formatShortDate(d.end_date)}
+                        </p>
+                      </div>
+                      <span style={{ flex: 'none', padding: '6px 10px', borderRadius: 999, background: 'var(--tv-paper)', color: 'var(--tv-muted)', font: "600 11px/1 'Inter',sans-serif" }}>{draftStage(d)}</span>
                     </div>
-                    <span style={{ flex: 'none', padding: '6px 10px', borderRadius: 999, background: 'var(--tv-paper)', color: 'var(--tv-muted)', font: "600 11px/1 'Inter',sans-serif" }}>{d.stage}</span>
-                  </div>
-                  <p style={{ margin: 0, font: "400 13px/1.45 'Inter',sans-serif", color: 'var(--tv-muted)' }}>{d.note}</p>
-                  <Pill variant="outline" size="sm" style={{ marginTop: 'auto', alignSelf: 'flex-start' }} onClick={() => navigate('/app/chat')}>Continue in chat</Pill>
-                </Card>
-              ))}
-            </div>
+                    <p style={{ margin: 0, font: "400 13px/1.45 'Inter',sans-serif", color: 'var(--tv-muted)' }}>{draftNote(d)}</p>
+                    <Pill variant="outline" size="sm" style={{ marginTop: 'auto', alignSelf: 'flex-start' }} onClick={() => navigate('/app/chat', { state: { itineraryId: d.id } })}>Continue in chat</Pill>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

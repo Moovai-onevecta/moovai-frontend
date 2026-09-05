@@ -501,6 +501,15 @@
   overflow-y: auto;
 }
 
+/* Without this, flex-shrink:1 (the default) squeezes messages/action cards
+   to fit once the transcript overflows, instead of leaving them full-size
+   for this container's own overflow-y to scroll — the suggested-actions
+   row (overflow-x: auto) then clips the squeezed-away part into its own
+   hidden scrollbar, looking permanently cut off. */
+.tv-pane-scroll > * {
+  flex-shrink: 0;
+}
+
 .tv-chat-input::placeholder {
   color: rgba(255, 255, 255, 0.45);
 }

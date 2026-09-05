@@ -7,9 +7,10 @@ import Landing from './landing'
 // import Landing from './App'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
+import CompleteProfile from './pages/CompleteProfile'
 import ProtectedRoute from './components/ProtectedRoute'
 import HomeDashboard from './pages/traveler/HomeDashboard'
-// import Onboarding from './pages/traveler/Onboarding'
+import Onboarding from './pages/traveler/Onboarding'
 import Chat from './pages/traveler/Chat'
 import Itinerary from './pages/traveler/Itinerary'
 import EditItinerary from './pages/traveler/EditItinerary'
@@ -28,6 +29,14 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route
+            path="/complete-profile"
+            element={
+              <ProtectedRoute>
+                <CompleteProfile />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/app/home"
             element={

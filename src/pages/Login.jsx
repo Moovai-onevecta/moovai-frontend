@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useAuth } from '../contexts/AuthContext'
+import { getMyProfile } from '../lib/users'
 import heroImg from '../assets/img/hero.png'
 
 function Login() {
@@ -19,7 +20,10 @@ function Login() {
     setLoading(true)
     try {
       await signInWithGoogle()
-      navigate('/app/home')
+      // Someone signing in for the first time via this page (rather than
+      // Signup) still needs their profile collected before entering the app.
+      const profile = await getMyProfile()
+      navigate(profile ? '/app/home' : '/complete-profile')
     } catch (err) {
       setError(err.message || 'Failed to sign in with Google')
     } finally {

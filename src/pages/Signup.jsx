@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useAuth } from '../contexts/AuthContext'
+import { getMyProfile } from '../lib/users'
 import heroImg from '../assets/img/hero.png'
 
 function Signup() {
@@ -19,7 +20,11 @@ function Signup() {
     setLoading(true)
     try {
       await signInWithGoogle()
-      navigate('/app/home')
+      // New accounts have no backend profile yet — collect name/home city/
+      // interests before entering the app. Returning users (e.g. someone who
+      // hits "Sign up" but already has an account) skip straight to home.
+      const profile = await getMyProfile()
+      navigate(profile ? '/app/home' : '/complete-profile')
     } catch (err) {
       setError(err.message || 'Failed to sign up with Google')
     } finally {

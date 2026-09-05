@@ -123,18 +123,15 @@ function Chat() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, suggestedActions])
 
-  const sendMessage = async (text) => {
-    const trimmed = text.trim()
-    if (!trimmed || loading) return
-
-    const nextMessages = [...messages, { role: 'user', content: trimmed }]
-    setMessages(nextMessages)
-    setInput('')
+  // Shared by sendMessage and retryLastMessage — takes the message history to
+  // send as-is (already includes the pending user turn) so a retry doesn't
+  // re-append and duplicate the user's bubble.
+  const requestAssistantReply = async (history) => {
     setError('')
     setLoading(true)
     try {
       const response = await chatAssistant(
-        nextMessages.map(({ role, content }) => ({ role, content })),
+        history.map(({ role, content }) => ({ role, content })),
         { cities: LEGS.map((leg) => leg.city) }
       )
       setMessages((cur) => [...cur, { role: 'assistant', content: response.reply }])
@@ -144,6 +141,21 @@ function Chat() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const sendMessage = (text) => {
+    const trimmed = text.trim()
+    if (!trimmed || loading) return
+
+    const nextMessages = [...messages, { role: 'user', content: trimmed }]
+    setMessages(nextMessages)
+    setInput('')
+    requestAssistantReply(nextMessages)
+  }
+
+  const retryLastMessage = () => {
+    if (loading) return
+    requestAssistantReply(messages)
   }
 
   const respondToAction = (action, accepted) => {
@@ -183,7 +195,12 @@ function Chat() {
             )}
 
             {error && (
-              <p style={{ margin: 0, font: "500 13px/1.4 'Inter',sans-serif", color: 'var(--tv-accent)' }}>{error}</p>
+              <div style={{ background: 'rgba(255,37,0,0.08)', border: '1px solid rgba(255,37,0,0.3)', borderRadius: 14, padding: '12px 14px' }}>
+                <p style={{ margin: '0 0 10px', font: "500 13px/1.4 'Inter',sans-serif", color: 'var(--tv-accent)' }}>{error}</p>
+                <Pill variant="soft-accent" size="sm" onClick={retryLastMessage} disabled={loading}>
+                  {loading ? 'Retrying…' : 'Retry'}
+                </Pill>
+              </div>
             )}
 
             <div className="tv-row" style={{ flexWrap: 'wrap', gap: 8, marginTop: 4 }}>

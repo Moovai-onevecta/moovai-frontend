@@ -1,0 +1,434 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700;800&display=swap');
+
+:root {
+  --tv-ink: #1a1712;
+  --tv-muted: #7c766c;
+  --tv-paper: #f4f2ec;
+  --tv-canvas: #ded9cf;
+  --tv-accent: #ff2500;
+  --tv-accent-tint: rgba(255, 37, 0, 0.09);
+  --tv-accent-border: rgba(255, 37, 0, 0.35);
+  --tv-line: rgba(26, 23, 18, 0.1);
+  --tv-line-strong: rgba(26, 23, 18, 0.14);
+  --tv-dark: #1a1712;
+  --tv-darker: #14141a;
+  --tv-white: #ffffff;
+  --tv-sand: #eae6dc;
+  --tv-green: #1a7f3c;
+  --tv-green-tint: rgba(26, 127, 60, 0.1);
+  --tv-radius-lg: 26px;
+  --tv-radius-xl: 30px;
+  --tv-shadow-card: 0 4px 16px -6px rgba(30, 28, 24, 0.16);
+  --tv-shadow-pop: 0 26px 60px -28px rgba(38, 34, 28, 0.34);
+}
+
+.tv-shell * {
+  box-sizing: border-box;
+}
+
+.tv-shell {
+  min-height: 100vh;
+  width: 100%;
+  background: var(--tv-paper);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  align-items: stretch;
+}
+
+.tv-shell-main {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sidebar */
+.tv-sidebar {
+  width: 232px;
+  flex: none;
+  align-self: flex-start;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  background: var(--tv-white);
+  border-right: 1px solid var(--tv-line);
+  padding: 22px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+}
+
+.tv-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  text-decoration: none;
+}
+
+.tv-sidebar-brand img {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+}
+
+.tv-sidebar-brand span {
+  font: 700 19px/1 'Inter Tight', 'Inter', sans-serif;
+  letter-spacing: -0.03em;
+  color: var(--tv-ink);
+}
+
+.tv-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tv-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 12px;
+  border-radius: 14px;
+  font: 600 14px/1 'Inter', sans-serif;
+  letter-spacing: -0.01em;
+  color: var(--tv-muted);
+  text-decoration: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.tv-nav-item .tv-nav-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+  background: rgba(26, 23, 18, 0.18);
+}
+
+.tv-nav-item.is-active {
+  background: var(--tv-dark);
+  color: var(--tv-paper);
+}
+
+.tv-nav-item.is-active .tv-nav-dot {
+  background: var(--tv-accent);
+}
+
+.tv-sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tv-support-note {
+  background: var(--tv-paper);
+  border: 1px solid rgba(26, 23, 18, 0.08);
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.tv-support-note p:first-child {
+  margin: 0 0 6px;
+  font: 700 11px/1 'Inter', sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tv-muted);
+}
+
+.tv-support-note p:last-child {
+  margin: 0;
+  font: 500 13px/1.45 'Inter', sans-serif;
+  color: var(--tv-ink);
+}
+
+.tv-user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px;
+  border-top: 1px solid rgba(26, 23, 18, 0.08);
+}
+
+.tv-user-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--tv-dark);
+  color: var(--tv-paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 13px/1 'Inter', sans-serif;
+  flex: none;
+  overflow: hidden;
+}
+
+.tv-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tv-user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tv-user-name {
+  font: 600 13px/1 'Inter', sans-serif;
+  color: var(--tv-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tv-user-role {
+  font: 500 12px/1 'Inter', sans-serif;
+  color: var(--tv-muted);
+}
+
+/* Cards */
+.tv-card {
+  background: var(--tv-white);
+  border: 1px solid var(--tv-line);
+  border-radius: var(--tv-radius-lg);
+  box-shadow: var(--tv-shadow-card);
+}
+
+.tv-card--flat {
+  box-shadow: none;
+}
+
+.tv-card--highlight {
+  border: 1.5px solid var(--tv-accent-border);
+  box-shadow: var(--tv-shadow-pop);
+}
+
+.tv-card--dashed {
+  border: 1.5px dashed var(--tv-accent-border);
+  box-shadow: none;
+}
+
+.tv-card--sand {
+  background: var(--tv-sand);
+  border: none;
+  box-shadow: none;
+}
+
+.tv-card--dark {
+  background: var(--tv-darker);
+  border: none;
+  box-shadow: none;
+}
+
+/* Pills / buttons */
+.tv-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 100px;
+  font: 600 14px/1 'Inter', sans-serif;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  padding: 13px 22px;
+}
+
+.tv-pill:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tv-pill--sm {
+  padding: 9px 16px;
+  font-size: 13px;
+}
+
+.tv-pill--xs {
+  padding: 6px 11px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tv-pill--dark {
+  background: var(--tv-dark);
+  color: var(--tv-paper);
+}
+
+.tv-pill--accent {
+  background: var(--tv-accent);
+  color: var(--tv-white);
+  box-shadow: 0 6px 20px -10px rgba(255, 37, 0, 0.45);
+}
+
+.tv-pill--outline {
+  background: transparent;
+  border: 1.5px solid var(--tv-line-strong);
+  color: var(--tv-ink);
+}
+
+.tv-pill--outline-light {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.tv-pill--soft-accent {
+  background: var(--tv-accent-tint);
+  border: 1.5px solid var(--tv-accent-border);
+  color: var(--tv-accent);
+}
+
+.tv-pill--muted-outline {
+  background: transparent;
+  border: 1.5px solid rgba(26, 23, 18, 0.14);
+  color: var(--tv-muted);
+}
+
+.tv-pill--ghost-dark {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3f2f6;
+}
+
+/* Badges */
+.tv-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font: 600 12px/1 'Inter', sans-serif;
+}
+
+.tv-badge--success {
+  color: var(--tv-green);
+  background: var(--tv-green-tint);
+}
+
+.tv-badge--pending {
+  color: var(--tv-accent);
+  background: var(--tv-accent-tint);
+}
+
+.tv-badge--neutral {
+  color: var(--tv-muted);
+  background: rgba(26, 23, 18, 0.07);
+}
+
+/* Chat bubbles */
+.tv-bubble {
+  max-width: 90%;
+  border-radius: 16px;
+  padding: 12px 16px;
+  font: 400 14px/1.45 'Inter', sans-serif;
+}
+
+.tv-bubble--left {
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.tv-bubble--right {
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.tv-bubble--accent {
+  background: var(--tv-accent);
+  color: var(--tv-white);
+}
+
+.tv-bubble--dark-soft {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f3f2f6;
+}
+
+/* Info tiles */
+.tv-info-tile {
+  background: var(--tv-paper);
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.tv-info-tile--white {
+  background: var(--tv-white);
+  border: 1px solid var(--tv-line);
+}
+
+.tv-info-tile-label {
+  margin: 0 0 4px;
+  font: 600 11px/1 'Inter', sans-serif;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tv-muted);
+}
+
+.tv-info-tile-value {
+  margin: 0;
+  font: 600 15px/1.35 'Inter', sans-serif;
+  color: var(--tv-ink);
+}
+
+/* Top bar shared across inner pages */
+.tv-topbar {
+  padding: 24px 34px;
+  border-bottom: 1px solid var(--tv-line);
+  background: var(--tv-white);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.tv-topbar-eyebrow {
+  margin: 0 0 5px;
+  font: 700 11px/1 'Inter', sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tv-muted);
+}
+
+.tv-topbar-title {
+  margin: 0;
+  font: 600 24px/1 'Inter Tight', 'Inter', sans-serif;
+  letter-spacing: -0.03em;
+  color: var(--tv-ink);
+}
+
+/* Generic layout helpers scoped to traveler pages */
+.tv-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.tv-row {
+  display: flex;
+  align-items: center;
+}
+
+/* A panel that should behave like its own fixed-height app pane
+   (e.g. the chat side panel) rather than growing with page scroll. */
+.tv-pane-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  align-self: flex-start;
+}
+
+.tv-pane-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+}

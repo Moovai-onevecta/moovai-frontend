@@ -1,30 +1,16 @@
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import TravelerShell from '../../components/traveler/TravelerShell'
 import ChatBubble from '../../components/traveler/ChatBubble'
 import Card from '../../components/traveler/Card'
 import Pill from '../../components/traveler/Pill'
 import Badge from '../../components/traveler/Badge'
+import { chatAssistant } from '../../lib/ai'
 
-const MESSAGES_BEFORE_APPROVAL = [
-  { align: 'left', tone: 'accent', text: 'Six days across Accra, Kumasi and Cape Coast is comfortable. Do you want the coast at the end, so you finish slow?' },
-  { align: 'right', tone: 'dark-soft', text: "Yes. And I'd rather not spend a whole day on a bus." },
-  { align: 'left', tone: 'accent', text: "Then Accra → Kumasi flies (55 min) and Kumasi → Cape Coast goes by private car with a stop at Lake Bosomtwe. I've put that in the draft on the right." },
-  { align: 'right', tone: 'dark-soft', text: 'Can day 2 be mostly food?' },
-  { align: 'left', tone: 'accent', text: "Done. One more city would fit without rushing you — Elmina, 30 minutes from Cape Coast. Approve it and I'll rebuild days 5 and 6 around it." },
-]
-
-const MESSAGES_AFTER_APPROVAL = [
-  { align: 'right', tone: 'dark-soft', text: 'Approved. What would we do there?' },
-  { align: 'left', tone: 'accent', text: 'Elmina is in. Here are three activities for the coast — approve the ones you want.' },
-]
-
-const ELMINA_TAGS = ['Est. half day', '+$34 total', 'No extra night']
-
-const SUGGESTIONS = [
-  { title: 'Cape Coast Castle, with a historian', city: 'Cape Coast', by: 'Esi Amoah · local guide', est: 'Est. 3 hrs', blurb: 'The dungeons and the door of no return, told slowly. Best in the morning before the coaches arrive.', price: '$24', btn: 'Added to day 5', btnVariant: 'added', alt: 'Undo' },
-  { title: 'Kakum canopy walk at dawn', city: 'Cape Coast', by: 'Park entry + transfer', est: 'Est. half day', blurb: 'Leave at 05:30 to have the walkways to yourself. Includes the 40 min drive each way.', price: '$31', btn: 'Approve', btnVariant: 'accent', alt: 'Skip' },
-  { title: 'Elmina fishing harbour and lunch', city: 'Elmina, 20 min west', by: 'Esi Amoah · local guide', est: 'Est. 4 hrs', blurb: 'The busiest harbour on the coast, then grilled fish at a stall she has used for years.', price: '$19', btn: 'Approve', btnVariant: 'accent', alt: 'Skip' },
-]
+const INITIAL_MESSAGE = {
+  role: 'assistant',
+  content: "Tell me about the trip you're picturing — where, when, and what you want out of it.",
+}
 
 const QUICK_ACTIONS = ['Add a rest day', 'Cheaper stays', 'More history']
 
@@ -58,11 +44,6 @@ const LEGS = [
   },
 ]
 
-const SUGGESTION_BTN_STYLE = {
-  added: { background: 'rgba(127,211,154,0.16)', color: '#7fd39a', border: 'none' },
-  accent: { background: 'var(--tv-accent)', color: '#fff', border: 'none' },
-}
-
 function LegCard({ leg }) {
   return (
     <Card style={{ padding: 26 }}>
@@ -92,8 +73,89 @@ function LegCard({ leg }) {
   )
 }
 
+function ActionCard({ action, onRespond }) {
+  const price = action.price
+  const priceLabel = price?.amount != null ? `$${price.amount}${price.is_estimate ? ' est.' : ''}` : null
+
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: '14px 16px' }}>
+      <div className="tv-row" style={{ gap: 10, alignItems: 'flex-start', marginBottom: 8 }}>
+        <div style={{ flex: '1 1 0' }}>
+          <p style={{ margin: '0 0 4px', font: "600 15px/1.3 'Inter',sans-serif", color: '#f3f2f6' }}>{action.title}</p>
+          {action.city && (
+            <p style={{ margin: 0, font: "400 13px/1.4 'Inter',sans-serif", color: 'rgba(255,255,255,0.6)' }}>{action.city}</p>
+          )}
+        </div>
+        {action.est && (
+          <span style={{ flex: 'none', padding: '6px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.75)', font: "600 11px/1 'Inter',sans-serif" }}>
+            {action.est}
+          </span>
+        )}
+      </div>
+      {action.blurb && (
+        <p style={{ margin: '0 0 12px', font: "400 13px/1.45 'Inter',sans-serif", color: 'rgba(255,255,255,0.62)' }}>{action.blurb}</p>
+      )}
+      <div className="tv-row" style={{ gap: 8 }}>
+        {priceLabel && (
+          <span style={{ marginRight: 'auto', font: "700 15px/1 'Inter Tight','Inter',sans-serif", color: '#fff' }}>{priceLabel}</span>
+        )}
+        <Pill size="sm" style={{ background: 'var(--tv-accent)', color: '#fff', border: 'none' }} onClick={() => onRespond(action, true)}>
+          Approve
+        </Pill>
+        <Pill variant="outline-light" size="sm" onClick={() => onRespond(action, false)}>
+          Skip
+        </Pill>
+      </div>
+    </div>
+  )
+}
+
 function Chat() {
   const navigate = useNavigate()
+  const [messages, setMessages] = useState([INITIAL_MESSAGE])
+  const [suggestedActions, setSuggestedActions] = useState([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const scrollRef = useRef(null)
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+  }, [messages, suggestedActions])
+
+  const sendMessage = async (text) => {
+    const trimmed = text.trim()
+    if (!trimmed || loading) return
+
+    const nextMessages = [...messages, { role: 'user', content: trimmed }]
+    setMessages(nextMessages)
+    setInput('')
+    setError('')
+    setLoading(true)
+    try {
+      const response = await chatAssistant(
+        nextMessages.map(({ role, content }) => ({ role, content })),
+        { cities: LEGS.map((leg) => leg.city) }
+      )
+      setMessages((cur) => [...cur, { role: 'assistant', content: response.reply }])
+      setSuggestedActions(response.suggested_actions || [])
+    } catch (err) {
+      setError(err.message || 'Something went wrong — try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const respondToAction = (action, accepted) => {
+    setSuggestedActions((cur) => cur.filter((a) => a.id !== action.id))
+    setMessages((cur) => [
+      ...cur,
+      {
+        role: 'assistant',
+        content: accepted ? `Added "${action.title}" to your itinerary.` : `Skipped "${action.title}".`,
+      },
+    ])
+  }
 
   return (
     <TravelerShell active="Chat">
@@ -103,72 +165,63 @@ function Chat() {
             <p style={{ margin: '0 0 6px', font: "700 11px/1 'Inter',sans-serif", letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' }}>Planning with</p>
             <p style={{ margin: 0, font: "600 16px/1 'Inter Tight','Inter',sans-serif", letterSpacing: '-0.02em', color: '#f3f2f6' }}>Moovai · Ghana, 6 days</p>
           </div>
-          <div className="tv-col tv-pane-scroll" style={{ padding: 22, gap: 14 }}>
-            {MESSAGES_BEFORE_APPROVAL.map((m, i) => (
-              <ChatBubble key={i} align={m.align} tone={m.tone}>{m.text}</ChatBubble>
-            ))}
 
-            <div style={{ background: 'var(--tv-white)', borderRadius: 20, padding: 18, boxShadow: '0 18px 40px -20px rgba(0,0,0,0.5)' }}>
-              <div className="tv-row" style={{ gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
-                <span style={{ width: 44, height: 44, flex: 'none', borderRadius: 13, background: 'var(--tv-sand)', color: 'var(--tv-ink)', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "700 13px/1 'Inter',sans-serif" }}>04</span>
-                <div style={{ flex: '1 1 0' }}>
-                  <p style={{ margin: '0 0 4px', font: "700 19px/1.1 'Inter Tight','Inter',sans-serif", letterSpacing: '-0.02em', color: 'var(--tv-ink)' }}>Add Elmina as a stop</p>
-                  <p style={{ margin: 0, font: "500 13px/1 'Inter',sans-serif", color: 'var(--tv-muted)' }}>Day 6 · 30 min from Cape Coast</p>
-                </div>
-                <Badge tone="pending" style={{ flex: 'none', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Needs approval</Badge>
-              </div>
-              <p style={{ margin: '0 0 14px', font: "400 14px/1.5 'Inter',sans-serif", color: 'var(--tv-muted)' }}>
-                Adds the harbour and St. George&apos;s Castle. Esi Amoah covers both cities, so no second guide is needed.
-              </p>
-              <div className="tv-row" style={{ flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                {ELMINA_TAGS.map((tag) => (
-                  <Badge key={tag} tone="neutral">{tag}</Badge>
+          <div ref={scrollRef} className="tv-col tv-pane-scroll" style={{ padding: 22, gap: 14 }}>
+            {messages.map((m, i) => (
+              <ChatBubble key={i} align={m.role === 'user' ? 'right' : 'left'} tone={m.role === 'user' ? 'dark-soft' : 'accent'}>
+                {m.content}
+              </ChatBubble>
+            ))}
+            {loading && <ChatBubble align="left" tone="accent">…</ChatBubble>}
+
+            {suggestedActions.length > 0 && (
+              <div className="tv-col" style={{ gap: 10, marginTop: 2 }}>
+                {suggestedActions.map((action) => (
+                  <ActionCard key={action.id} action={action} onRespond={respondToAction} />
                 ))}
               </div>
-              <div className="tv-row" style={{ gap: 8, paddingTop: 14, borderTop: '1px solid rgba(26,23,18,0.08)' }}>
-                <Pill variant="accent" size="sm" style={{ flex: '1 1 0', justifyContent: 'center' }}>Approve and add</Pill>
-                <Pill variant="outline" size="sm">Not this trip</Pill>
-                <Pill variant="outline" size="sm">Why?</Pill>
-              </div>
-            </div>
+            )}
 
-            {MESSAGES_AFTER_APPROVAL.map((m, i) => (
-              <ChatBubble key={i} align={m.align} tone={m.tone}>{m.text}</ChatBubble>
-            ))}
-
-            <div className="tv-col" style={{ gap: 10, marginTop: 2 }}>
-              {SUGGESTIONS.map((s) => (
-                <div key={s.title} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: '14px 16px' }}>
-                  <div className="tv-row" style={{ gap: 10, alignItems: 'flex-start', marginBottom: 8 }}>
-                    <div style={{ flex: '1 1 0' }}>
-                      <p style={{ margin: '0 0 4px', font: "600 15px/1.3 'Inter',sans-serif", color: '#f3f2f6' }}>{s.title}</p>
-                      <p style={{ margin: 0, font: "400 13px/1.4 'Inter',sans-serif", color: 'rgba(255,255,255,0.6)' }}>{s.city} · {s.by}</p>
-                    </div>
-                    <span style={{ flex: 'none', padding: '6px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.75)', font: "600 11px/1 'Inter',sans-serif" }}>{s.est}</span>
-                  </div>
-                  <p style={{ margin: '0 0 12px', font: "400 13px/1.45 'Inter',sans-serif", color: 'rgba(255,255,255,0.62)' }}>{s.blurb}</p>
-                  <div className="tv-row" style={{ gap: 8 }}>
-                    <span style={{ marginRight: 'auto', font: "700 15px/1 'Inter Tight','Inter',sans-serif", color: '#fff' }}>{s.price}</span>
-                    <Pill size="sm" style={SUGGESTION_BTN_STYLE[s.btnVariant]}>{s.btn}</Pill>
-                    <Pill variant="outline-light" size="sm">{s.alt}</Pill>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {error && (
+              <p style={{ margin: 0, font: "500 13px/1.4 'Inter',sans-serif", color: 'var(--tv-accent)' }}>{error}</p>
+            )}
 
             <div className="tv-row" style={{ flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
               {QUICK_ACTIONS.map((action) => (
-                <Pill key={action} variant="outline-light" size="sm">{action}</Pill>
+                <Pill key={action} variant="outline-light" size="sm" onClick={() => sendMessage(action)}>
+                  {action}
+                </Pill>
               ))}
             </div>
           </div>
-          <div className="tv-col" style={{ padding: '18px 22px 22px', borderTop: '1px solid rgba(255,255,255,0.1)', gap: 10 }}>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              sendMessage(input)
+            }}
+            className="tv-col"
+            style={{ padding: '18px 22px 22px', borderTop: '1px solid rgba(255,255,255,0.1)', gap: 10 }}
+          >
             <div className="tv-row" style={{ gap: 10, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 100, padding: '12px 8px 12px 18px' }}>
-              <span style={{ flex: '1 1 0', font: "400 14px/1 'Inter',sans-serif", color: 'rgba(255,255,255,0.45)' }}>Ask for a change…</span>
-              <span style={{ width: 34, height: 34, flex: 'none', borderRadius: 100, background: 'var(--tv-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "700 15px/1 'Inter',sans-serif" }}>↑</span>
+              <input
+                className="tv-chat-input"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask for a change…"
+                disabled={loading}
+                style={{ flex: '1 1 0', background: 'transparent', border: 'none', outline: 'none', font: "400 14px/1 'Inter',sans-serif", color: '#fff' }}
+              />
+              <button
+                type="submit"
+                disabled={loading || !input.trim()}
+                style={{ width: 34, height: 34, flex: 'none', borderRadius: 100, background: 'var(--tv-accent)', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', font: "700 15px/1 'Inter',sans-serif", cursor: loading ? 'default' : 'pointer', opacity: loading || !input.trim() ? 0.6 : 1 }}
+              >
+                ↑
+              </button>
             </div>
             <p style={{ margin: 0, font: "400 12px/1 'Inter',sans-serif", color: 'rgba(255,255,255,0.35)' }}>Nothing is booked until you confirm.</p>
-          </div>
+          </form>
         </div>
 
         <div className="tv-col" style={{ flex: '1 1 0', minWidth: 0 }}>

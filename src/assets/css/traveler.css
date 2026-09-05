@@ -432,3 +432,7 @@
   min-height: 0;
   overflow-y: auto;
 }
+
+.tv-chat-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}

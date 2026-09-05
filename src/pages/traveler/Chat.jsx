@@ -73,6 +73,30 @@ function LegCard({ leg }) {
   )
 }
 
+function SystemNote({ content, kind }) {
+  const isAdded = kind === 'added'
+  return (
+    <div className="tv-row" style={{ justifyContent: 'center' }}>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          maxWidth: '90%',
+          padding: '7px 14px',
+          borderRadius: 999,
+          background: isAdded ? 'rgba(127,211,154,0.16)' : 'rgba(255,255,255,0.08)',
+          color: isAdded ? '#7fd39a' : 'rgba(255,255,255,0.55)',
+          font: "600 12px/1.4 'Inter',sans-serif",
+          textAlign: 'center',
+        }}
+      >
+        {isAdded ? '✓' : '–'} {content}
+      </span>
+    </div>
+  )
+}
+
 function ActionCard({ action, onRespond }) {
   const price = action.price
   const priceLabel = price?.amount != null ? `$${price.amount}${price.is_estimate ? ' est.' : ''}` : null
@@ -131,7 +155,11 @@ function Chat() {
     setLoading(true)
     try {
       const response = await chatAssistant(
-        history.map(({ role, content }) => ({ role, content })),
+        // System notes (action confirmations) are a UI-only concept — the
+        // backend's ChatMessage schema only knows about user/assistant turns.
+        history
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .map(({ role, content }) => ({ role, content })),
         { cities: LEGS.map((leg) => leg.city) }
       )
       setMessages((cur) => [...cur, { role: 'assistant', content: response.reply }])
@@ -163,7 +191,8 @@ function Chat() {
     setMessages((cur) => [
       ...cur,
       {
-        role: 'assistant',
+        role: 'system',
+        kind: accepted ? 'added' : 'skipped',
         content: accepted ? `Added "${action.title}" to your itinerary.` : `Skipped "${action.title}".`,
       },
     ])
@@ -179,11 +208,15 @@ function Chat() {
           </div>
 
           <div ref={scrollRef} className="tv-col tv-pane-scroll" style={{ padding: 22, gap: 14 }}>
-            {messages.map((m, i) => (
-              <ChatBubble key={i} align={m.role === 'user' ? 'right' : 'left'} tone={m.role === 'user' ? 'dark-soft' : 'accent'}>
-                {m.content}
-              </ChatBubble>
-            ))}
+            {messages.map((m, i) =>
+              m.role === 'system' ? (
+                <SystemNote key={i} content={m.content} kind={m.kind} />
+              ) : (
+                <ChatBubble key={i} align={m.role === 'user' ? 'right' : 'left'} tone={m.role === 'user' ? 'dark-soft' : 'accent'}>
+                  {m.content}
+                </ChatBubble>
+              )
+            )}
             {loading && <ChatBubble align="left" tone="accent">…</ChatBubble>}
 
             {suggestedActions.length > 0 && (

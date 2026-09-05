@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { useAuth } from '../../contexts/AuthContext'
+import UserMenu from './UserMenu'
 import heroImg from '../../assets/img/hero.png'
 
 const NAV_ITEMS = [
@@ -11,20 +11,7 @@ const NAV_ITEMS = [
   { label: 'Live trip', to: '/app/trip' },
 ]
 
-function initials(name) {
-  if (!name) return 'YOU'
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('')
-}
-
 function Sidebar({ active }) {
-  const { user } = useAuth()
-  const displayName = user?.displayName || 'Traveler'
-
   return (
     <aside className="tv-sidebar">
       <Link to="/app/onboarding" className="tv-sidebar-brand">
@@ -50,15 +37,7 @@ function Sidebar({ active }) {
           <p>Support</p>
           <p>A human is on call for this trip, 24/7.</p>
         </div>
-        <div className="tv-user-row">
-          <span className="tv-user-avatar">
-            {user?.photoURL ? <img src={user.photoURL} alt="" /> : initials(displayName)}
-          </span>
-          <span className="tv-user-meta">
-            <span className="tv-user-name">{displayName}</span>
-            <span className="tv-user-role">Traveler</span>
-          </span>
-        </div>
+        <UserMenu />
       </div>
     </aside>
   )
